@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photobooth Pro - Flash Effect Edition</title>
+    <style>
+        :root {
+            --primary: #6c5ce7; --secondary: #a29bfe; --dark: #2d3436;
+            --success: #00b894; --light: #dfe6e9; --accent: #fdcb6e; --danger: #ff7675;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif; background-color: var(--dark);
+            color: var(--light); margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh;
+        }
+
+        .container { text-align: center; width: 95%; max-width: 1000px; padding: 20px 0; }
+        .hidden { display: none !important; }
+
+        .screen {
+            background: #3d3d3d; padding: 25px; border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3); animation: slideUp 0.4s ease-out;
+        }
+
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        button {
+            padding: 12px 20px; font-size: 0.9rem; font-weight: 500; cursor: pointer;
+            border: 2px solid transparent; border-radius: 10px; background: var(--primary);
+            color: white; transition: 0.2s; margin: 5px;
+        }
+
+        button:hover { background: var(--secondary); transform: translateY(-2px); }
+        button.active-opt { background: var(--accent) !important; color: var(--dark) !important; font-weight: bold; border: 2px solid white; }
+
+        #camera-container {
+            position: relative; background: #000; border-radius: 15px;
+            overflow: hidden; border: 4px solid #fff; margin-bottom: 15px; max-width: 640px; margin-left: auto; margin-right: auto;
+        }
+
+        video { width: 100%; transform: scaleX(-1); display: block; }
+        
+        /* EFEK FLASH */
+        #flash-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: white; opacity: 0; pointer-events: none; z-index: 20;
+        }
+        .flash-active { animation: flashAnim 0.3s ease-out; }
+        @keyframes flashAnim {
+            0% { opacity: 0; }
+            50% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        #timer {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            font-size: 8rem; color: white; text-shadow: 0 0 20px #000; z-index: 10;
+        }
+
+        .review-layout { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; align-items: flex-start; margin-top: 10px; }
+        .canvas-area { flex: 1.2; min-width: 320px; display: flex; justify-content: center; }
+        #final-canvas { background: white; border: 8px solid white; box-shadow: 0 10px 25px rgba(0,0,0,0.5); width: 100%; max-width: 380px; height: auto; }
+
+        .controls-area {
+            flex: 1; min-width: 300px; background: #2d3436; padding: 20px;
+            border-radius: 15px; text-align: left;
+        }
+
+        .control-group { margin-bottom: 20px; border-bottom: 1px solid #444; padding-bottom: 15px; }
+        .control-group h4 { margin: 0 0 10px 0; color: var(--accent); text-transform: uppercase; font-size: 0.8rem; letter-spacing: 1px; }
+
+        .theme-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .theme-item {
+            background: #444; border-radius: 8px; overflow: hidden; cursor: pointer;
+            border: 3px solid transparent; transition: 0.2s; position: relative; height: 100px;
+        }
+        .theme-item.selected { border-color: var(--accent); }
+        .theme-item img { width: 100%; height: 100%; object-fit: cover; opacity: 0.7; }
+        .theme-item.selected img { opacity: 1; }
+        .theme-item span { position: absolute; bottom: 0; font-size: 0.7rem; background: rgba(0,0,0,0.8); width: 100%; text-align: center; padding: 4px 0; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div id="screen-0" class="screen">
+            <h1>PHOTOBOOTH PRO</h1>
+            <p>Aktifkan kamera untuk memulai</p>
+            <button onclick="requestCameraAccess()" style="padding: 20px 50px; font-size: 1.5rem; background: var(--success);">MULAI</button>
+        </div>
+
+        <div id="screen-1" class="screen hidden">
+            <h1>PILIH GRID</h1>
+            <div style="margin: 30px 0;">
+                <button onclick="setGrid(4)" style="padding: 20px 40px; font-size: 1.2rem;">4 GRID</button>
+                <button onclick="setGrid(6)" style="padding: 20px 40px; font-size: 1.2rem;">6 GRID</button>
+            </div>
+        </div>
+
+        <div id="screen-2" class="screen hidden">
+            <div id="camera-container">
+                <div id="flash-overlay"></div> <video id="video" autoplay playsinline></video>
+                <div id="timer" class="hidden">5</div>
+            </div>
+            <h3 id="photo-info" style="color: var(--accent);">Ambil Foto ke-1</h3>
+            <button id="snap-btn" onclick="countdownStart()" style="width: 100%; font-size: 1.2rem; background: var(--success); padding: 15px;">AMBIL FOTO</button>
+        </div>
+
+        <div id="screen-3" class="screen hidden">
+            <h2 style="margin-top: 0;">Review & Customize</h2>
+            <div class="review-layout">
+                <div class="canvas-area">
+                    <canvas id="final-canvas" width="450" height="600"></canvas>
+                </div>
+
+                <div class="controls-area">
+                    <div class="control-group">
+                        <h4>1. Filter</h4>
+                        <div style="display: flex; flex-wrap: wrap; gap: 5px;">
+                            <button class="f-btn active-opt" onclick="setFilter('none', this)">Normal</button>
+                            <button class="f-btn" onclick="setFilter('grayscale(100%)', this)">B&W</button>
+                            <button class="f-btn" onclick="setFilter('sepia(80%)', this)">Vintage</button>
+                            <button class="f-btn" onclick="setFilter('brightness(1.2) contrast(1.1)', this)">Soft</button>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <h4>2. Pilih Tema</h4>
+                        <div id="theme-list" class="theme-grid"></div>
+                    </div>
+
+                    <div class="control-group" style="border: none;">
+                        <button onclick="downloadCanvas()" style="background: var(--success); width: 100%; margin: 0 0 10px 0; padding: 15px; font-weight: bold;">DOWNLOAD PNG</button>
+                        <button onclick="location.reload()" style="background: var(--danger); width: 100%; margin: 0; opacity: 0.8;">RESET</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // URL ASLI DARI LO - TETAP TERJAGA
+        const themesData = [
+            { id: 't1', name: 'Tema Utama', url: 'https://lh3.googleusercontent.com/u/0/d/1lFgs4HxcF5v7dCYPYMVX_jGtRjsO0FLo'},
+            { id: 't2', name: 'Tema Photobooth', url: 'https://lh3.googleusercontent.com/u/0/d/18POpDlmQsYNjdMYi9a0grEEvrvCOkXLU'}
+        ];
+
+        let selectedGrid = 4;
+        let currentFilter = 'none';
+        let photos = []; 
+        let selectedThemeUrl = themesData[0].url; 
+        let stream = null;
+        const video = document.getElementById('video');
+
+        function updateStep(n) {
+            document.querySelectorAll('.screen').forEach((el, i) => el.classList.toggle('hidden', i !== n));
+        }
+
+        async function requestCameraAccess() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 }, audio: false });
+                video.srcObject = stream;
+                updateStep(1);
+            } catch (err) { alert("Izinkan kamera dulu bro!"); }
+        }
+
+        function setGrid(grid) {
+            selectedGrid = grid;
+            updateStep(2);
+            updateInfo();
+        }
+
+        function updateInfo() { document.getElementById('photo-info').innerText = `Ambil Foto ke-${photos.length + 1} dari ${selectedGrid}`; }
+
+        function countdownStart() {
+            let t = 5;
+            const timerEl = document.getElementById('timer');
+            document.getElementById('snap-btn').disabled = true;
+            timerEl.innerText = t; timerEl.classList.remove('hidden');
+
+            const counter = setInterval(() => {
+                t--; timerEl.innerText = t;
+                if (t <= 0) {
+                    clearInterval(counter); timerEl.classList.add('hidden');
+                    
+                    // AKTIFKAN EFEK FLASH
+                    const flash = document.getElementById('flash-overlay');
+                    flash.classList.remove('flash-active');
+                    void flash.offsetWidth; // Trigger reflow untuk reset animasi
+                    flash.classList.add('flash-active');
+                    
+                    capturePhoto();
+                }
+            }, 1000);
+        }
+
+        function capturePhoto() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 640; canvas.height = 480;
+            const ctx = canvas.getContext('2d');
+            ctx.translate(canvas.width, 0); ctx.scale(-1, 1);
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            photos.push(canvas.toDataURL('image/png'));
+
+            if (photos.length < selectedGrid) {
+                updateInfo();
+                document.getElementById('snap-btn').disabled = false;
+            } else {
+                if (stream) stream.getTracks().forEach(track => track.stop());
+                showReview();
+            }
+        }
+
+        function showReview() {
+            updateStep(3);
+            const list = document.getElementById('theme-list');
+            list.innerHTML = '';
+            
+            themesData.forEach((theme) => {
+                const div = document.createElement('div');
+                div.className = `theme-item ${theme.url === selectedThemeUrl ? 'selected' : ''}`;
+                div.onclick = () => {
+                    selectedThemeUrl = theme.url;
+                    document.querySelectorAll('.theme-item').forEach(e => e.classList.remove('selected'));
+                    div.classList.add('selected');
+                    renderFinal();
+                };
+                div.innerHTML = `<img src="${theme.url}"><span>${theme.name}</span>`;
+                list.appendChild(div);
+            });
+            renderFinal();
+        }
+
+        function setFilter(f, btn) {
+            currentFilter = f;
+            document.querySelectorAll('.f-btn').forEach(b => b.classList.remove('active-opt'));
+            btn.classList.add('active-opt');
+            renderFinal();
+        }
+
+        function renderFinal() {
+            const canvas = document.getElementById('final-canvas');
+            const ctx = canvas.getContext('2d');
+            const frameImg = new Image();
+            frameImg.crossOrigin = "anonymous";
+            frameImg.src = selectedThemeUrl;
+
+            frameImg.onload = () => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
+                
+                let loaded = 0;
+                const photoImgs = [];
+                photos.forEach((src, i) => {
+                    const img = new Image();
+                    img.src = src;
+                    img.onload = () => {
+                        loaded++;
+                        photoImgs[i] = img;
+                        if(loaded === selectedGrid) drawPhotos(ctx, photoImgs);
+                    }
+                });
+            };
+        }
+
+        function drawPhotos(ctx, photoImgs) {
+            const pW = 190, pH = 142, gap = 15, startX = 25, startY = 85;
+            ctx.filter = currentFilter;
+            if (selectedGrid === 4) {
+                ctx.drawImage(photoImgs[0], startX, startY, pW, pH);
+                ctx.drawImage(photoImgs[1], startX + pW + gap, startY, pW, pH);
+                ctx.drawImage(photoImgs[2], startX, startY + pH + gap, pW, pH);
+                ctx.drawImage(photoImgs[3], startX + pW + gap, startY + pH + gap, pW, pH);
+            } else {
+                const pH6 = 125, gap6 = 10;
+                ctx.drawImage(photoImgs[0], startX, startY, pW, pH6);
+                ctx.drawImage(photoImgs[1], startX + pW + gap, startY, pW, pH6);
+                ctx.drawImage(photoImgs[2], startX, startY + pH6 + gap6, pW, pH6);
+                ctx.drawImage(photoImgs[3], startX + pW + gap, startY + pH6 + gap6, pW, pH6);
+                ctx.drawImage(photoImgs[4], startX, startY + (pH6*2) + (gap6*2), pW, pH6);
+                ctx.drawImage(photoImgs[5], startX + pW + gap, startY + (pH6*2) + (gap6*2), pW, pH6);
+            }
+            ctx.filter = 'none';
+        }
+
+        function downloadCanvas() {
+            const link = document.createElement('a');
+            link.download = `booth-${Date.now()}.png`;
+            link.href = document.getElementById('final-canvas').toDataURL('image/png');
+            link.click();
+        }
+    </script>
+</body>
+</html>
