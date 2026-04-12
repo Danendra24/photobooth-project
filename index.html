@@ -3,108 +3,73 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Photobooth Pro - 1:1 Edition</title>
+    <title>PHOTOBOOTH PRO - FINAL FIXED</title>
+    <script src="https://app.sandbox.midtrans.com/snap/snap.js" data-client-key="Mid-client-r1C08G4XhkgZdTJB"></script>
     <style>
         :root {
             --primary: #6c5ce7; --secondary: #a29bfe; --dark: #2d3436;
             --success: #00b894; --light: #dfe6e9; --accent: #fdcb6e; --danger: #ff7675;
         }
-
         body {
             font-family: 'Segoe UI', sans-serif; background-color: var(--dark);
             color: var(--light); margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh;
         }
-
         .container { text-align: center; width: 95%; max-width: 1000px; padding: 20px 0; }
         .hidden { display: none !important; }
-
         .screen {
             background: #3d3d3d; padding: 25px; border-radius: 20px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.3); animation: slideUp 0.4s ease-out;
         }
-
         @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-
         button {
             padding: 12px 20px; font-size: 0.9rem; font-weight: 500; cursor: pointer;
             border: 2px solid transparent; border-radius: 10px; background: var(--primary);
             color: white; transition: 0.2s; margin: 5px;
         }
-
-        button:hover { background: var(--secondary); transform: translateY(-2px); }
         button.active-opt { background: var(--accent) !important; color: var(--dark) !important; font-weight: bold; border: 2px solid white; }
-
-        /* --- DISPLAY KAMERA 1:1 --- */
         #camera-container {
             position: relative; background: #000; border-radius: 15px;
-            overflow: hidden; border: 4px solid #fff; margin-bottom: 15px; 
-            width: 100%; max-width: 400px; aspect-ratio: 1 / 1; /* Paksa Kotak */
-            margin-left: auto; margin-right: auto;
+            overflow: hidden; border: 4px solid #fff; margin: 0 auto 15px auto; 
+            width: 100%; max-width: 400px; aspect-ratio: 1 / 1;
         }
-
-        video { 
-            width: 100%; height: 100%; 
-            object-fit: cover; /* Crop tampilan kamera agar kotak di layar */
-            transform: scaleX(-1); display: block; 
-        }
-        
-        #flash-overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: white; opacity: 0; pointer-events: none; z-index: 20;
-        }
-        .flash-active { animation: flashAnim 0.3s ease-out; }
-        @keyframes flashAnim {
-            0% { opacity: 0; } 50% { opacity: 1; } 100% { opacity: 0; }
-        }
-
+        video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); display: block; }
         #timer {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             font-size: 8rem; color: white; text-shadow: 0 0 20px #000; z-index: 10;
         }
-
-        .review-layout { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; align-items: flex-start; margin-top: 10px; }
-        .canvas-area { flex: 1.2; min-width: 320px; display: flex; justify-content: center; }
-        #final-canvas { background: white; border: 8px solid white; box-shadow: 0 10px 25px rgba(0,0,0,0.5); width: 100%; max-width: 380px; height: auto; }
-
-        .controls-area {
-            flex: 1; min-width: 300px; background: #2d3436; padding: 20px;
-            border-radius: 15px; text-align: left;
+        #flash {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: white; opacity: 0; pointer-events: none; z-index: 9999;
         }
-
-        .control-group { margin-bottom: 20px; border-bottom: 1px solid #444; padding-bottom: 15px; }
-        .control-group h4 { margin: 0 0 10px 0; color: var(--accent); text-transform: uppercase; font-size: 0.8rem; letter-spacing: 1px; }
-
+        .flash-active { animation: flashAnim 0.3s ease-out; }
+        @keyframes flashAnim { 0% { opacity: 0; } 50% { opacity: 1; } 100% { opacity: 0; } }
+        #final-canvas { background: white; border: 8px solid white; width: 100%; max-width: 380px; height: auto; }
+        .review-layout { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; }
         .theme-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
-        .theme-item {
-            background: #444; border-radius: 8px; overflow: hidden; cursor: pointer;
-            border: 3px solid transparent; transition: 0.2s; position: relative; height: 100px;
-        }
+        .theme-item { background: #444; border-radius: 8px; overflow: hidden; cursor: pointer; border: 3px solid transparent; height: 100px; }
         .theme-item.selected { border-color: var(--accent); }
-        .theme-item img { width: 100%; height: 100%; object-fit: cover; opacity: 0.7; }
-        .theme-item.selected img { opacity: 1; }
-        .theme-item span { position: absolute; bottom: 0; font-size: 0.7rem; background: rgba(0,0,0,0.8); width: 100%; text-align: center; padding: 4px 0; }
+        .theme-item img { width: 100%; height: 100%; object-fit: cover; }
     </style>
 </head>
 <body>
-
+    <div id="flash"></div>
     <div class="container">
-        <div id="screen-0" class="screen">
+        
+        <div id="screen-payment" class="screen">
             <h1>PHOTOBOOTH PRO</h1>
-            <p>Aktifkan kamera untuk memulai</p>
-            <button onclick="requestCameraAccess()" style="padding: 20px 50px; font-size: 1.5rem; background: var(--success);">MULAI</button>
+            <p style="color: var(--accent);">Silakan selesaikan pembayaran untuk mulai</p>
+            <button id="pay-button" onclick="processPayment()" style="padding: 20px 50px; font-size: 1.3rem; background: var(--success); width: 100%; max-width: 400px;">BAYAR SEKARANG</button>
         </div>
 
         <div id="screen-1" class="screen hidden">
             <h1>PILIH GRID</h1>
-            <div style="margin: 30px 0;">
-                <button onclick="setGrid(4)" style="padding: 20px 40px; font-size: 1.2rem;">4 GRID</button>
-                <button onclick="setGrid(6)" style="padding: 20px 40px; font-size: 1.2rem;">6 GRID</button>
-            </div>
+            <button onclick="setGrid(4)">4 GRID</button>
+            <button onclick="setGrid(6)">6 GRID</button>
         </div>
 
         <div id="screen-2" class="screen hidden">
             <div id="camera-container">
-                <div id="flash-overlay"></div> <video id="video" autoplay playsinline></video>
+                <video id="video" autoplay playsinline></video>
                 <div id="timer" class="hidden">5</div>
             </div>
             <h3 id="photo-info" style="color: var(--accent);">Ambil Foto ke-1</h3>
@@ -112,158 +77,139 @@
         </div>
 
         <div id="screen-3" class="screen hidden">
-            <h2 style="margin-top: 0;">Review & Customize</h2>
             <div class="review-layout">
-                <div class="canvas-area">
-                    <canvas id="final-canvas"></canvas>
-                </div>
-
-                <div class="controls-area">
-                    <div class="control-group">
-                        <h4>1. Filter</h4>
-                        <div style="display: flex; flex-wrap: wrap; gap: 5px;">
-                            <button class="f-btn active-opt" onclick="setFilter('none', this)">Normal</button>
-                            <button class="f-btn" onclick="setFilter('grayscale(100%)', this)">B&W</button>
-                            <button class="f-btn" onclick="setFilter('sepia(80%)', this)">Vintage</button>
-                            <button class="f-btn" onclick="setFilter('brightness(1.2) contrast(1.1)', this)">Soft</button>
-                        </div>
+                <canvas id="final-canvas"></canvas>
+                <div style="flex: 1; min-width: 300px; text-align: left; background: #2d3436; padding: 20px; border-radius: 15px;">
+                    <h4>Filter</h4>
+                    <div style="margin-bottom: 20px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px;">
+                        <button class="f-btn active-opt" onclick="setFilter('none', this)">Normal</button>
+                        <button class="f-btn" onclick="setFilter('grayscale(100%)', this)">B&W</button>
+                        <button class="f-btn" onclick="setFilter('sepia(80%)', this)">Sepia</button>
+                        <button class="f-btn" onclick="setFilter('contrast(1.1) brightness(1.1) hue-rotate(190deg) saturate(0.8)', this)">Film Blue</button>
+                        <button class="f-btn" onclick="setFilter('sepia(30%) contrast(1.1) brightness(1.1) saturate(1.3)', this)">Film Warm</button>
+                        <button class="f-btn" onclick="setFilter('contrast(1.2) saturate(0.8) brightness(0.9)', this)">Film</button>
+                        <button class="f-btn" onclick="setFilter('brightness(1.2) contrast(0.9) hue-rotate(180deg) saturate(0.5)', this)">Icy</button>
+                        <button class="f-btn" onclick="setFilter('sepia(50%) contrast(0.9) brightness(1.1)', this)">Vintage</button>
+                        <button class="f-btn" onclick="setFilter('hue-rotate(270deg) saturate(0.8) contrast(1.1)', this)">Twilight</button>
+                        <button class="f-btn" onclick="setFilter('contrast(1.5) brightness(0.8) saturate(1.2)', this)">Vignette</button>
                     </div>
-
-                    <div class="control-group">
-                        <h4>2. Pilih Tema</h4>
-                        <div id="theme-list" class="theme-grid"></div>
-                    </div>
-
-                    <div class="control-group" style="border: none;">
-                        <button onclick="downloadCanvas()" style="background: var(--success); width: 100%; margin: 0 0 10px 0; padding: 15px; font-weight: bold;">DOWNLOAD PNG</button>
-                        <button onclick="location.reload()" style="background: var(--danger); width: 100%; margin: 0; opacity: 0.8;">RESET</button>
-                    </div>
+                    <h4>Pilih Tema</h4>
+                    <div id="theme-list" class="theme-grid"></div>
+                    <button onclick="downloadCanvas()" style="background: var(--success); width: 100%; margin-top: 20px; padding: 15px; font-weight: bold;">DOWNLOAD PNG</button>
+                    <button onclick="location.reload()" style="background: var(--danger); width: 100%; margin-top: 10px;">RESET</button>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        // --- 1. TEMA ---
         const themesData = [
-            { id: 't1', name: 'Tema Utama', url: 'https://lh3.googleusercontent.com/u/0/d/1lFgs4HxcF5v7dCYPYMVX_jGtRjsO0FLo'},
-            { id: 't2', name: 'Tema Photobooth', url: 'https://lh3.googleusercontent.com/u/0/d/18POpDlmQsYNjdMYi9a0grEEvrvCOkXLU'},
-            { id: 't3', name: 'Tema Photobooth', url: 'https://lh3.googleusercontent.com/u/0/d/1xOziYz4fjeaS83EHCKqasvf40aUi4iTe'},
-            { id: 't4', name: 'Tema Photobooth', url: 'https://lh3.googleusercontent.com/u/0/d/1YanaKsSJ-dtdBjY2uOKvHBvIxGAPo3Vt'},
-            { id: 't5', name: 'Tema Photobooth', url: 'https://lh3.googleusercontent.com/u/0/d/1zfp0WFqs8lKF0ZU_B_5JqINQ97VBHH8j'},
+            { id: 't1', name: 'Tema 1', url: 'https://lh3.googleusercontent.com/u/0/d/1lFgs4HxcF5v7dCYPYMVX_jGtRjsO0FLo'},
+            { id: 't2', name: 'Tema 2', url: 'https://lh3.googleusercontent.com/u/0/d/18POpDlmQsYNjdMYi9a0grEEvrvCOkXLU'},
+            { id: 't3', name: 'Tema 3', url: 'https://lh3.googleusercontent.com/u/0/d/1xOziYz4fjeaS83EHCKqasvf40aUi4iTe'},
+            { id: 't4', name: 'Tema 4', url: 'https://lh3.googleusercontent.com/u/0/d/1YanaKsSJ-dtdBjY2uOKvHBvIxGAPo3Vt'},
+            { id: 't5', name: 'Tema 5', url: 'https://lh3.googleusercontent.com/u/0/d/1zfp0WFqs8lKF0ZU_B_5JqINQ97VBHH8j'},
         ];
-     
-        // --- 2. CONFIG GRID 4 ---
-        const CONFIG_4 = {
-            startX: 8.5, 
-            startY: 85, 
-            photoW: 190, 
-            photoH: 190, 
-            gap: 10
+
+        const GRID_MARKER = {
+            4: { paddingTop: 85, paddingLeft: 10, photoW: 185, photoH: 185, gapX: 10, gapY: 10 },
+            6: { paddingTop: 20, paddingLeft: 40, photoW: 170, photoH: 170, gapX: 10, gapY: 10 }
         };
 
-        // --- 3. CONFIG GRID 6 ---
-        const CONFIG_6 = {
-            startX: 40,
-            startY: 20,
-            photoW: 170, 
-            photoH: 170, 
-            gap: 10  
-        };
-
-        // --- 4. GLOBAL SETTINGS ---
-        const CANVAS_SIZE = { width: 400, height: 600 };
-        let TIMER_COUNT = 1; 
-
-        // --- Logika Program ---
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbyk9iSMyFkw9RL7a0_aO5wUU1b3FsyJmmLl-n57q2Ds0CVR7ryIgW8SfQtpnwDi-SLW/exec";
         let selectedGrid = 4;
-        let currentFilter = 'none';
-        let photos = []; 
-        let selectedThemeUrl = themesData[0].url; 
+        let photos = [];
         let stream = null;
-        const video = document.getElementById('video');
+        let selectedThemeUrl = themesData[0].url;
+        let currentFilter = 'none';
+        
+        // Update urutan ID Screen sesuai alur baru
+        const screens = ['screen-payment', 'screen-1', 'screen-2', 'screen-3'];
 
         function updateStep(n) {
-            document.querySelectorAll('.screen').forEach((el, i) => el.classList.toggle('hidden', i !== n));
+            screens.forEach((id, i) => { document.getElementById(id).classList.toggle('hidden', i !== n); });
         }
 
-        async function requestCameraAccess() {
+        async function processPayment() {
+            const btn = document.getElementById('pay-button');
+            btn.disabled = true;
             try {
-                stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 }, audio: false });
-                video.srcObject = stream;
-                updateStep(1);
-            } catch (err) { alert("Izinkan kamera dulu bro!"); }
+                const resp = await fetch(`${GAS_URL}?amount=25000`);
+                const token = await resp.text();
+                window.snap.pay(token, {
+                    onSuccess: () => { updateStep(1); },
+                    onPending: () => { if(confirm("Simulasi Bayar Berhasil?")) { updateStep(1); } }
+                });
+            } catch (e) { 
+                alert("Payment Error!");
+                btn.disabled = false; 
+            }
         }
 
-        function setGrid(grid) {
-            selectedGrid = grid;
-            updateStep(2);
-            updateInfo();
+        async function setGrid(grid) { 
+            selectedGrid = grid; 
+            // Setelah pilih grid, baru minta kamera biar nggak berat di depan
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
+                document.getElementById('video').srcObject = stream;
+                updateStep(2); 
+                updateInfo();
+            } catch (err) {
+                alert("Izinkan akses kamera untuk lanjut!");
+            }
         }
 
         function updateInfo() { document.getElementById('photo-info').innerText = `Ambil Foto ke-${photos.length + 1} dari ${selectedGrid}`; }
 
         function countdownStart() {
-            let t = TIMER_COUNT;
-            const timerEl = document.getElementById('timer');
+            let t = 5;
+            const el = document.getElementById('timer');
             document.getElementById('snap-btn').disabled = true;
-            timerEl.innerText = t; timerEl.classList.remove('hidden');
-
+            el.innerText = t; el.classList.remove('hidden');
             const counter = setInterval(() => {
-                t--; timerEl.innerText = t;
-                if (t <= 0) {
-                    clearInterval(counter); timerEl.classList.add('hidden');
-                    const flash = document.getElementById('flash-overlay');
-                    flash.classList.remove('flash-active');
-                    void flash.offsetWidth; 
-                    flash.classList.add('flash-active');
-                    capturePhoto();
-                }
+                t--; el.innerText = t;
+                if(t <= 0) { clearInterval(counter); el.classList.add('hidden'); capturePhoto(); }
             }, 1000);
         }
 
-        /* --- UPDATE: CAPTURE PHOTO 1:1 CENTER --- */
         function capturePhoto() {
-            const canvas = document.createElement('canvas');
-            const size = Math.min(video.videoWidth, video.videoHeight); // Ambil sisi terpendek buat jadi 1:1
-            canvas.width = size;
-            canvas.height = size;
-            
-            const ctx = canvas.getContext('2d');
-            // Mirroring
-            ctx.translate(canvas.width, 0);
-            ctx.scale(-1, 1);
-            
-            // Center Crop Logika
-            const sx = (video.videoWidth - size) / 2;
-            const sy = (video.videoHeight - size) / 2;
-            
-            ctx.drawImage(video, sx, sy, size, size, 0, 0, size, size);
-            photos.push(canvas.toDataURL('image/png'));
-
-            if (photos.length < selectedGrid) {
-                updateInfo();
-                document.getElementById('snap-btn').disabled = false;
-            } else {
-                if (stream) stream.getTracks().forEach(track => track.stop());
-                showReview();
-            }
+            const flash = document.getElementById('flash');
+            flash.classList.remove('flash-active');
+            void flash.offsetWidth;
+            flash.classList.add('flash-active');
+            setTimeout(() => {
+                const v = document.getElementById('video');
+                const canvas = document.createElement('canvas');
+                const size = Math.min(v.videoWidth, v.videoHeight);
+                canvas.width = size; canvas.height = size;
+                const ctx = canvas.getContext('2d');
+                ctx.translate(canvas.width, 0); ctx.scale(-1, 1);
+                ctx.drawImage(v, (v.videoWidth-size)/2, (v.videoHeight-size)/2, size, size, 0, 0, size, size);
+                photos.push(canvas.toDataURL('image/png'));
+                if(photos.length < selectedGrid) {
+                    updateInfo();
+                    document.getElementById('snap-btn').disabled = false;
+                } else {
+                    if(stream) stream.getTracks().forEach(t => t.stop());
+                    showReview();
+                }
+            }, 150);
         }
 
         function showReview() {
             updateStep(3);
             const list = document.getElementById('theme-list');
             list.innerHTML = '';
-            themesData.forEach((theme) => {
+            themesData.forEach(t => {
                 const div = document.createElement('div');
-                div.className = `theme-item ${theme.url === selectedThemeUrl ? 'selected' : ''}`;
-                div.onclick = () => {
-                    selectedThemeUrl = theme.url;
+                div.className = `theme-item ${t.url === selectedThemeUrl ? 'selected' : ''}`;
+                div.onclick = () => { 
+                    selectedThemeUrl = t.url; 
                     document.querySelectorAll('.theme-item').forEach(e => e.classList.remove('selected'));
                     div.classList.add('selected');
-                    renderFinal();
+                    renderFinal(); 
                 };
-                div.innerHTML = `<img src="${theme.url}"><span>${theme.name}</span>`;
+                div.innerHTML = `<img src="${t.url}">`;
                 list.appendChild(div);
             });
             renderFinal();
@@ -278,52 +224,34 @@
 
         function renderFinal() {
             const canvas = document.getElementById('final-canvas');
-            canvas.width = CANVAS_SIZE.width;
-            canvas.height = CANVAS_SIZE.height;
+            canvas.width = 400; canvas.height = 600;
             const ctx = canvas.getContext('2d');
-            const frameImg = new Image();
-            frameImg.crossOrigin = "anonymous";
-            frameImg.src = selectedThemeUrl;
-            frameImg.onload = () => {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
-                let loaded = 0;
-                const photoImgs = [];
+            const frame = new Image();
+            frame.crossOrigin = "anonymous";
+            frame.src = selectedThemeUrl;
+            frame.onload = () => {
+                ctx.clearRect(0,0,400,600);
+                ctx.drawImage(frame, 0, 0, 400, 600);
+                const marker = GRID_MARKER[selectedGrid];
                 photos.forEach((src, i) => {
-                    const img = new Image();
-                    img.src = src;
-                    img.onload = () => {
-                        loaded++;
-                        photoImgs[i] = img;
-                        if(loaded === selectedGrid) drawPhotos(ctx, photoImgs);
+                    const p = new Image(); p.src = src;
+                    p.onload = () => {
+                        ctx.save();
+                        let col = i % 2; let row = Math.floor(i / 2);
+                        let dx = marker.paddingLeft + (col * (marker.photoW + marker.gapX));
+                        let dy = marker.paddingTop + (row * (marker.photoH + marker.gapY));
+                        ctx.filter = currentFilter;
+                        ctx.drawImage(p, 0, 0, p.width, p.height, dx, dy, marker.photoW, marker.photoH);
+                        ctx.restore();
                     }
                 });
-            };
-        }
-
-        /* --- UPDATE: DRAWING LOGIC WITH GRID SUPPORT --- */
-        function drawPhotos(ctx, photoImgs) {
-            ctx.filter = currentFilter;
-            const cfg = (selectedGrid === 4) ? CONFIG_4 : CONFIG_6;
-            const { startX, startY, photoW, photoH, gap } = cfg;
-
-            photoImgs.forEach((img, i) => {
-                let col = i % 2;
-                let row = Math.floor(i / 2);
-                
-                let dx = startX + (col * (photoW + gap));
-                let dy = startY + (row * (photoH + gap));
-
-                // Karena capture sudah 1:1, kita tinggal gambar sesuai ukuran grid
-                ctx.drawImage(img, 0, 0, img.width, img.height, dx, dy, photoW, photoH);
-            });
-            ctx.filter = 'none';
+            }
         }
 
         function downloadCanvas() {
             const link = document.createElement('a');
-            link.download = `booth-${Date.now()}.png`;
-            link.href = document.getElementById('final-canvas').toDataURL('image/png');
+            link.download = `booth-result.png`;
+            link.href = document.getElementById('final-canvas').toDataURL();
             link.click();
         }
     </script>
