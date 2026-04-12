@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Photobooth Pro - Flash Effect Edition</title>
+    <title>Photobooth Pro - 1:1 Edition</title>
     <style>
         :root {
             --primary: #6c5ce7; --secondary: #a29bfe; --dark: #2d3436;
@@ -34,23 +34,27 @@
         button:hover { background: var(--secondary); transform: translateY(-2px); }
         button.active-opt { background: var(--accent) !important; color: var(--dark) !important; font-weight: bold; border: 2px solid white; }
 
+        /* --- DISPLAY KAMERA 1:1 --- */
         #camera-container {
             position: relative; background: #000; border-radius: 15px;
-            overflow: hidden; border: 4px solid #fff; margin-bottom: 15px; max-width: 640px; margin-left: auto; margin-right: auto;
+            overflow: hidden; border: 4px solid #fff; margin-bottom: 15px; 
+            width: 100%; max-width: 400px; aspect-ratio: 1 / 1; /* Paksa Kotak */
+            margin-left: auto; margin-right: auto;
         }
 
-        video { width: 100%; transform: scaleX(-1); display: block; }
+        video { 
+            width: 100%; height: 100%; 
+            object-fit: cover; /* Crop tampilan kamera agar kotak di layar */
+            transform: scaleX(-1); display: block; 
+        }
         
-        /* EFEK FLASH */
         #flash-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: white; opacity: 0; pointer-events: none; z-index: 20;
         }
         .flash-active { animation: flashAnim 0.3s ease-out; }
         @keyframes flashAnim {
-            0% { opacity: 0; }
-            50% { opacity: 1; }
-            100% { opacity: 0; }
+            0% { opacity: 0; } 50% { opacity: 1; } 100% { opacity: 0; }
         }
 
         #timer {
@@ -111,7 +115,7 @@
             <h2 style="margin-top: 0;">Review & Customize</h2>
             <div class="review-layout">
                 <div class="canvas-area">
-                    <canvas id="final-canvas" width="450" height="600"></canvas>
+                    <canvas id="final-canvas"></canvas>
                 </div>
 
                 <div class="controls-area">
@@ -140,12 +144,38 @@
     </div>
 
     <script>
-        // URL ASLI DARI LO - TETAP TERJAGA
+        // --- 1. TEMA ---
         const themesData = [
             { id: 't1', name: 'Tema Utama', url: 'https://lh3.googleusercontent.com/u/0/d/1lFgs4HxcF5v7dCYPYMVX_jGtRjsO0FLo'},
-            { id: 't2', name: 'Tema Photobooth', url: 'https://lh3.googleusercontent.com/u/0/d/18POpDlmQsYNjdMYi9a0grEEvrvCOkXLU'}
+            { id: 't2', name: 'Tema Photobooth', url: 'https://lh3.googleusercontent.com/u/0/d/18POpDlmQsYNjdMYi9a0grEEvrvCOkXLU'},
+            { id: 't3', name: 'Tema Photobooth', url: 'https://lh3.googleusercontent.com/u/0/d/1xOziYz4fjeaS83EHCKqasvf40aUi4iTe'},
+            { id: 't4', name: 'Tema Photobooth', url: 'https://lh3.googleusercontent.com/u/0/d/1YanaKsSJ-dtdBjY2uOKvHBvIxGAPo3Vt'},
+            { id: 't5', name: 'Tema Photobooth', url: 'https://lh3.googleusercontent.com/u/0/d/1zfp0WFqs8lKF0ZU_B_5JqINQ97VBHH8j'},
         ];
+     
+        // --- 2. CONFIG GRID 4 ---
+        const CONFIG_4 = {
+            startX: 8.5, 
+            startY: 85, 
+            photoW: 190, 
+            photoH: 190, 
+            gap: 10
+        };
 
+        // --- 3. CONFIG GRID 6 ---
+        const CONFIG_6 = {
+            startX: 40,
+            startY: 20,
+            photoW: 170, 
+            photoH: 170, 
+            gap: 10  
+        };
+
+        // --- 4. GLOBAL SETTINGS ---
+        const CANVAS_SIZE = { width: 400, height: 600 };
+        let TIMER_COUNT = 1; 
+
+        // --- Logika Program ---
         let selectedGrid = 4;
         let currentFilter = 'none';
         let photos = []; 
@@ -174,7 +204,7 @@
         function updateInfo() { document.getElementById('photo-info').innerText = `Ambil Foto ke-${photos.length + 1} dari ${selectedGrid}`; }
 
         function countdownStart() {
-            let t = 5;
+            let t = TIMER_COUNT;
             const timerEl = document.getElementById('timer');
             document.getElementById('snap-btn').disabled = true;
             timerEl.innerText = t; timerEl.classList.remove('hidden');
@@ -183,24 +213,32 @@
                 t--; timerEl.innerText = t;
                 if (t <= 0) {
                     clearInterval(counter); timerEl.classList.add('hidden');
-                    
-                    // AKTIFKAN EFEK FLASH
                     const flash = document.getElementById('flash-overlay');
                     flash.classList.remove('flash-active');
-                    void flash.offsetWidth; // Trigger reflow untuk reset animasi
+                    void flash.offsetWidth; 
                     flash.classList.add('flash-active');
-                    
                     capturePhoto();
                 }
             }, 1000);
         }
 
+        /* --- UPDATE: CAPTURE PHOTO 1:1 CENTER --- */
         function capturePhoto() {
             const canvas = document.createElement('canvas');
-            canvas.width = 640; canvas.height = 480;
+            const size = Math.min(video.videoWidth, video.videoHeight); // Ambil sisi terpendek buat jadi 1:1
+            canvas.width = size;
+            canvas.height = size;
+            
             const ctx = canvas.getContext('2d');
-            ctx.translate(canvas.width, 0); ctx.scale(-1, 1);
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            // Mirroring
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
+            
+            // Center Crop Logika
+            const sx = (video.videoWidth - size) / 2;
+            const sy = (video.videoHeight - size) / 2;
+            
+            ctx.drawImage(video, sx, sy, size, size, 0, 0, size, size);
             photos.push(canvas.toDataURL('image/png'));
 
             if (photos.length < selectedGrid) {
@@ -216,7 +254,6 @@
             updateStep(3);
             const list = document.getElementById('theme-list');
             list.innerHTML = '';
-            
             themesData.forEach((theme) => {
                 const div = document.createElement('div');
                 div.className = `theme-item ${theme.url === selectedThemeUrl ? 'selected' : ''}`;
@@ -241,15 +278,15 @@
 
         function renderFinal() {
             const canvas = document.getElementById('final-canvas');
+            canvas.width = CANVAS_SIZE.width;
+            canvas.height = CANVAS_SIZE.height;
             const ctx = canvas.getContext('2d');
             const frameImg = new Image();
             frameImg.crossOrigin = "anonymous";
             frameImg.src = selectedThemeUrl;
-
             frameImg.onload = () => {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
-                
                 let loaded = 0;
                 const photoImgs = [];
                 photos.forEach((src, i) => {
@@ -264,23 +301,22 @@
             };
         }
 
+        /* --- UPDATE: DRAWING LOGIC WITH GRID SUPPORT --- */
         function drawPhotos(ctx, photoImgs) {
-            const pW = 190, pH = 142, gap = 15, startX = 25, startY = 85;
             ctx.filter = currentFilter;
-            if (selectedGrid === 4) {
-                ctx.drawImage(photoImgs[0], startX, startY, pW, pH);
-                ctx.drawImage(photoImgs[1], startX + pW + gap, startY, pW, pH);
-                ctx.drawImage(photoImgs[2], startX, startY + pH + gap, pW, pH);
-                ctx.drawImage(photoImgs[3], startX + pW + gap, startY + pH + gap, pW, pH);
-            } else {
-                const pH6 = 125, gap6 = 10;
-                ctx.drawImage(photoImgs[0], startX, startY, pW, pH6);
-                ctx.drawImage(photoImgs[1], startX + pW + gap, startY, pW, pH6);
-                ctx.drawImage(photoImgs[2], startX, startY + pH6 + gap6, pW, pH6);
-                ctx.drawImage(photoImgs[3], startX + pW + gap, startY + pH6 + gap6, pW, pH6);
-                ctx.drawImage(photoImgs[4], startX, startY + (pH6*2) + (gap6*2), pW, pH6);
-                ctx.drawImage(photoImgs[5], startX + pW + gap, startY + (pH6*2) + (gap6*2), pW, pH6);
-            }
+            const cfg = (selectedGrid === 4) ? CONFIG_4 : CONFIG_6;
+            const { startX, startY, photoW, photoH, gap } = cfg;
+
+            photoImgs.forEach((img, i) => {
+                let col = i % 2;
+                let row = Math.floor(i / 2);
+                
+                let dx = startX + (col * (photoW + gap));
+                let dy = startY + (row * (photoH + gap));
+
+                // Karena capture sudah 1:1, kita tinggal gambar sesuai ukuran grid
+                ctx.drawImage(img, 0, 0, img.width, img.height, dx, dy, photoW, photoH);
+            });
             ctx.filter = 'none';
         }
 
