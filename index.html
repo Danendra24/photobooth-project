@@ -21,12 +21,16 @@
             box-shadow: 0 10px 30px rgba(0,0,0,0.3); animation: slideUp 0.4s ease-out;
         }
         @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        
         button {
             padding: 12px 20px; font-size: 0.9rem; font-weight: 500; cursor: pointer;
             border: 2px solid transparent; border-radius: 10px; background: var(--primary);
             color: white; transition: 0.2s; margin: 5px;
         }
+        button:disabled { background: #555 !important; cursor: not-allowed; }
         button.active-opt { background: var(--accent) !important; color: var(--dark) !important; font-weight: bold; border: 2px solid white; }
+
+        /* CAMERA STYLING */
         #camera-container {
             position: relative; background: #000; border-radius: 15px;
             overflow: hidden; border: 4px solid #fff; margin: 0 auto 15px auto; 
@@ -37,12 +41,16 @@
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             font-size: 8rem; color: white; text-shadow: 0 0 20px #000; z-index: 10;
         }
+
+        /* FLASH EFFECT */
         #flash {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: white; opacity: 0; pointer-events: none; z-index: 9999;
         }
         .flash-active { animation: flashAnim 0.3s ease-out; }
         @keyframes flashAnim { 0% { opacity: 0; } 50% { opacity: 1; } 100% { opacity: 0; } }
+
+        /* REVIEW AREA */
         #final-canvas { background: white; border: 8px solid white; width: 100%; max-width: 380px; height: auto; }
         .review-layout { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; }
         .theme-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
@@ -52,19 +60,22 @@
     </style>
 </head>
 <body>
+
     <div id="flash"></div>
+
     <div class="container">
         
         <div id="screen-payment" class="screen">
             <h1>PHOTOBOOTH PRO</h1>
-            <p style="color: var(--accent);">Silakan selesaikan pembayaran untuk mulai</p>
+            <p style="color: var(--accent); margin-bottom: 20px;">Silakan selesaikan pembayaran untuk memulai sesi foto</p>
             <button id="pay-button" onclick="processPayment()" style="padding: 20px 50px; font-size: 1.3rem; background: var(--success); width: 100%; max-width: 400px;">BAYAR SEKARANG</button>
         </div>
 
         <div id="screen-1" class="screen hidden">
             <h1>PILIH GRID</h1>
-            <button onclick="setGrid(4)">4 GRID</button>
-            <button onclick="setGrid(6)">6 GRID</button>
+            <p>Mau berapa foto dalam satu frame?</p>
+            <button onclick="setGrid(4)" style="padding: 20px 40px;">4 GRID</button>
+            <button onclick="setGrid(6)" style="padding: 20px 40px;">6 GRID</button>
         </div>
 
         <div id="screen-2" class="screen hidden">
@@ -103,6 +114,7 @@
     </div>
 
     <script>
+        /* TEMA ASLI LO */
         const themesData = [
             { id: 't1', name: 'Tema 1', url: 'https://lh3.googleusercontent.com/u/0/d/1lFgs4HxcF5v7dCYPYMVX_jGtRjsO0FLo'},
             { id: 't2', name: 'Tema 2', url: 'https://lh3.googleusercontent.com/u/0/d/18POpDlmQsYNjdMYi9a0grEEvrvCOkXLU'},
@@ -111,6 +123,7 @@
             { id: 't5', name: 'Tema 5', url: 'https://lh3.googleusercontent.com/u/0/d/1zfp0WFqs8lKF0ZU_B_5JqINQ97VBHH8j'},
         ];
 
+        /* KOORDINAT FOTO PADA FRAME */
         const GRID_MARKER = {
             4: { paddingTop: 85, paddingLeft: 10, photoW: 185, photoH: 185, gapX: 10, gapY: 10 },
             6: { paddingTop: 20, paddingLeft: 40, photoW: 170, photoH: 170, gapX: 10, gapY: 10 }
@@ -122,14 +135,13 @@
         let stream = null;
         let selectedThemeUrl = themesData[0].url;
         let currentFilter = 'none';
-        
-        // Update urutan ID Screen sesuai alur baru
         const screens = ['screen-payment', 'screen-1', 'screen-2', 'screen-3'];
 
         function updateStep(n) {
             screens.forEach((id, i) => { document.getElementById(id).classList.toggle('hidden', i !== n); });
         }
 
+        /* LOGIKA PEMBAYARAN - FIXED BUG PENDING */
         async function processPayment() {
             const btn = document.getElementById('pay-button');
             btn.disabled = true;
@@ -137,25 +149,38 @@
                 const resp = await fetch(`${GAS_URL}?amount=25000`);
                 const token = await resp.text();
                 window.snap.pay(token, {
-                    onSuccess: () => { updateStep(1); },
-                    onPending: () => { if(confirm("Simulasi Bayar Berhasil?")) { updateStep(1); } }
+                    onSuccess: function(result) { 
+                        updateStep(1); 
+                    },
+                    onPending: function(result) { 
+                        alert("Pembayaran tertunda. Harap selesaikan pembayaran untuk lanjut.");
+                        btn.disabled = false; 
+                    },
+                    onError: function(result) { 
+                        alert("Pembayaran Gagal!");
+                        btn.disabled = false; 
+                    },
+                    onClose: function() {
+                        alert("Selesaikan pembayaran terlebih dahulu!");
+                        btn.disabled = false;
+                    }
                 });
             } catch (e) { 
-                alert("Payment Error!");
+                alert("Kesalahan Koneksi!");
                 btn.disabled = false; 
             }
         }
 
+        /* SET GRID & MINTA KAMERA */
         async function setGrid(grid) { 
             selectedGrid = grid; 
-            // Setelah pilih grid, baru minta kamera biar nggak berat di depan
             try {
                 stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
                 document.getElementById('video').srcObject = stream;
                 updateStep(2); 
                 updateInfo();
             } catch (err) {
-                alert("Izinkan akses kamera untuk lanjut!");
+                alert("Harap izinkan akses kamera!");
             }
         }
 
@@ -177,6 +202,7 @@
             flash.classList.remove('flash-active');
             void flash.offsetWidth;
             flash.classList.add('flash-active');
+            
             setTimeout(() => {
                 const v = document.getElementById('video');
                 const canvas = document.createElement('canvas');
@@ -185,7 +211,9 @@
                 const ctx = canvas.getContext('2d');
                 ctx.translate(canvas.width, 0); ctx.scale(-1, 1);
                 ctx.drawImage(v, (v.videoWidth-size)/2, (v.videoHeight-size)/2, size, size, 0, 0, size, size);
+                
                 photos.push(canvas.toDataURL('image/png'));
+
                 if(photos.length < selectedGrid) {
                     updateInfo();
                     document.getElementById('snap-btn').disabled = false;
@@ -229,10 +257,12 @@
             const frame = new Image();
             frame.crossOrigin = "anonymous";
             frame.src = selectedThemeUrl;
+            
             frame.onload = () => {
                 ctx.clearRect(0,0,400,600);
                 ctx.drawImage(frame, 0, 0, 400, 600);
                 const marker = GRID_MARKER[selectedGrid];
+                
                 photos.forEach((src, i) => {
                     const p = new Image(); p.src = src;
                     p.onload = () => {
@@ -250,8 +280,8 @@
 
         function downloadCanvas() {
             const link = document.createElement('a');
-            link.download = `booth-result.png`;
-            link.href = document.getElementById('final-canvas').toDataURL();
+            link.download = `photobooth-${Date.now()}.png`;
+            link.href = document.getElementById('final-canvas').toDataURL('image/png');
             link.click();
         }
     </script>
