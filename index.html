@@ -50,13 +50,28 @@
         .theme-item { background: #444; border-radius: 8px; overflow: hidden; cursor: pointer; border: 3px solid transparent; height: 100px; }
         .theme-item.selected { border-color: var(--accent); }
         .theme-item img { width: 100%; height: 100%; object-fit: cover; }
+
+        /* SELECTION UI */
+        .selection-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 20px; }
+        .select-box { position: relative; cursor: pointer; border: 4px solid transparent; border-radius: 10px; overflow: hidden; aspect-ratio: 1/1; }
+        .select-box img { width: 100%; height: 100%; object-fit: cover; }
+        .select-box.picked { border-color: var(--success); }
+        .badge { position: absolute; top: 5px; right: 5px; background: var(--success); color: white; border-radius: 50%; width: 25px; height: 25px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.8rem; }
     </style>
 </head>
 <body>
     <div id="flash"></div>
     <div class="container">
         
-        <div id="screen-payment" class="screen">
+        <div id="screen-config" class="screen">
+            <h1>KONFIGURASI PRINTER</h1>
+            <p id="printer-status" style="color: var(--danger); margin-bottom: 20px;">Printer Bluetooth Belum Terkoneksi</p>
+            <button onclick="connectPrinter()" style="background: var(--primary); padding: 15px 30px; display: block; margin: 10px auto;">HUBUNGKAN PRINTER</button>
+            <button onclick="updateStep(1)" style="background: var(--secondary); padding: 15px 30px; display: block; margin: 10px auto;">LANJUT</button>
+            <button id="btn-go-pay" class="hidden" onclick="updateStep(1)" style="background: var(--success); padding: 15px 30px;">LANJUT KE PROGRAM</button>
+        </div>
+
+        <div id="screen-payment" class="screen hidden">
             <h1>PHOTOBOOTH PRO</h1>
             <p style="color: var(--accent); margin-bottom: 20px;">Selesaikan pembayaran Rp25.000 untuk memulai</p>
             <button id="pay-button" onclick="processPayment()" style="padding: 20px 50px; font-size: 1.3rem; background: var(--success); width: 100%; max-width: 400px;">BAYAR SEKARANG</button>
@@ -73,8 +88,15 @@
                 <video id="video" autoplay playsinline></video>
                 <div id="timer" class="hidden">5</div>
             </div>
-            <h3 id="photo-info" style="color: var(--accent);">Ambil Foto ke-1</h3>
+            <h3 id="photo-info" style="color: var(--accent);">Ambil Foto ke-1 dari 8</h3>
             <button id="snap-btn" onclick="countdownStart()" style="width: 100%; font-size: 1.2rem; background: var(--success); padding: 15px;">AMBIL FOTO</button>
+        </div>
+
+        <div id="screen-select" class="screen hidden">
+            <h1>PILIH FOTO TERBAIK</h1>
+            <p id="select-instruction" style="color: var(--accent);">Pilih 0 dari 4 foto</p>
+            <div id="selection-container" class="selection-grid"></div>
+            <button id="confirm-selection" onclick="showReview()" disabled style="width: 100%; margin-top: 20px; background: var(--success);">LANJUTKAN</button>
         </div>
 
         <div id="screen-3" class="screen hidden">
@@ -96,8 +118,9 @@
                     </div>
                     <h4>Pilih Tema</h4>
                     <div id="theme-list" class="theme-grid"></div>
-                    <button onclick="downloadCanvas()" style="background: var(--success); width: 100%; margin-top: 20px; padding: 15px; font-weight: bold;">DOWNLOAD PNG</button>
-                    <button onclick="location.reload()" style="background: var(--danger); width: 100%; margin-top: 10px;">RESET</button>
+                    <button id="print-btn" onclick="printAndReset()" style="background: var(--accent); color: var(--dark); width: 100%; margin-top: 20px; padding: 15px; font-weight: bold;">PRINT FOTO</button>
+                    <button onclick="downloadCanvas()" style="background: var(--success); width: 100%; margin-top: 10px;">DOWNLOAD PNG</button>
+                    <button onclick="location.reload()" style="background: var(--danger); width: 100%; margin-top: 10px;">RESET TOTAL</button>
                 </div>
             </div>
         </div>
@@ -112,21 +135,41 @@
             { id: 't5', name: 'Tema 5', url: 'https://lh3.googleusercontent.com/u/0/d/1zfp0WFqs8lKF0ZU_B_5JqINQ97VBHH8j'},
         ];
 
+        // DISINI PERUBAHANNYA: Angka disesuaikan agar 1:1 Square
         const GRID_MARKER = {
-            4: { paddingTop: 85, paddingLeft: 10, photoW: 185, photoH: 185, gapX: 10, gapY: 10 },
-            6: { paddingTop: 20, paddingLeft: 40, photoW: 170, photoH: 170, gapX: 10, gapY: 10 }
+            4: { paddingTop: 70, paddingLeft: 15, photoW: 175, photoH: 175, gapX: 20, gapY: 20 },
+            6: { paddingTop: 40, paddingLeft: 15, photoW: 175, photoH: 175, gapX: 20, gapY: 10 }
         };
 
         const GAS_URL = "https://script.google.com/macros/s/AKfycbyk9iSMyFkw9RL7a0_aO5wUU1b3FsyJmmLl-n57q2Ds0CVR7ryIgW8SfQtpnwDi-SLW/exec";
         let selectedGrid = 4;
         let photos = [];
+        let selectedPhotos = [];
         let stream = null;
         let selectedThemeUrl = themesData[0].url;
         let currentFilter = 'none';
-        const screens = ['screen-payment', 'screen-1', 'screen-2', 'screen-3'];
+        
+        const screens = ['screen-config', 'screen-payment', 'screen-1', 'screen-2', 'screen-select', 'screen-3'];
+        let printerCharacteristic = null;
 
         function updateStep(n) {
             screens.forEach((id, i) => { document.getElementById(id).classList.toggle('hidden', i !== n); });
+        }
+
+        async function connectPrinter() {
+            try {
+                const device = await navigator.bluetooth.requestDevice({
+                    filters: [{ services: ['000018f0-0000-1000-8000-00805f9b34fb'] }],
+                    optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb']
+                });
+                const server = await device.gatt.connect();
+                const service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
+                const characteristics = await service.getCharacteristics();
+                printerCharacteristic = characteristics.find(c => c.properties.write);
+                document.getElementById('printer-status').innerText = "Printer Terhubung: " + device.name;
+                document.getElementById('printer-status').style.color = "var(--success)";
+                document.getElementById('btn-go-pay').classList.remove('hidden');
+            } catch (err) { alert("Koneksi Printer Gagal: " + err); }
         }
 
         async function processPayment() {
@@ -135,28 +178,13 @@
             try {
                 const resp = await fetch(`${GAS_URL}?amount=25000`);
                 const token = await resp.text();
-                
                 window.snap.pay(token, {
-                    onSuccess: function(result) { 
-                        updateStep(1); 
-                    },
-                    onPending: function(result) { 
-                        alert("Pembayaran tertunda. Harap selesaikan di aplikasi.");
-                        btn.disabled = false; 
-                    },
-                    onError: function(result) { 
-                        alert("Pembayaran Gagal.");
-                        btn.disabled = false; 
-                    },
-                    onClose: function() {
-                        alert("Selesaikan pembayaran untuk melanjutkan.");
-                        btn.disabled = false;
-                    }
+                    onSuccess: function(result) { updateStep(2); },
+                    onPending: function(result) { alert("Pembayaran tertunda."); btn.disabled = false; },
+                    onError: function(result) { alert("Pembayaran Gagal."); btn.disabled = false; },
+                    onClose: function() { alert("Selesaikan pembayaran untuk melanjutkan."); btn.disabled = false; }
                 });
-            } catch (e) { 
-                alert("Server Error!");
-                btn.disabled = false; 
-            }
+            } catch (e) { alert("Server Error!"); btn.disabled = false; }
         }
 
         async function setGrid(grid) { 
@@ -164,15 +192,15 @@
             try {
                 stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
                 document.getElementById('video').srcObject = stream;
-                updateStep(2); 
+                updateStep(3); 
                 updateInfo();
             } catch (err) { alert("Izinkan kamera!"); }
         }
 
-        function updateInfo() { document.getElementById('photo-info').innerText = `Ambil Foto ke-${photos.length + 1} dari ${selectedGrid}`; }
+        function updateInfo() { document.getElementById('photo-info').innerText = `Ambil Foto ke-${photos.length + 1} dari 8`; }
 
         function countdownStart() {
-            let t = 5;
+            let t = 1;
             const el = document.getElementById('timer');
             document.getElementById('snap-btn').disabled = true;
             el.innerText = t; el.classList.remove('hidden');
@@ -184,10 +212,7 @@
 
         function capturePhoto() {
             const flash = document.getElementById('flash');
-            flash.classList.remove('flash-active');
-            void flash.offsetWidth;
             flash.classList.add('flash-active');
-            
             setTimeout(() => {
                 const v = document.getElementById('video');
                 const canvas = document.createElement('canvas');
@@ -197,18 +222,53 @@
                 ctx.translate(canvas.width, 0); ctx.scale(-1, 1);
                 ctx.drawImage(v, (v.videoWidth-size)/2, (v.videoHeight-size)/2, size, size, 0, 0, size, size);
                 photos.push(canvas.toDataURL('image/png'));
-                if(photos.length < selectedGrid) {
+                flash.classList.remove('flash-active');
+                if(photos.length < 8) {
                     updateInfo();
                     document.getElementById('snap-btn').disabled = false;
                 } else {
                     if(stream) stream.getTracks().forEach(t => t.stop());
-                    showReview();
+                    initSelection();
                 }
             }, 150);
         }
 
+        function initSelection() {
+            updateStep(4);
+            selectedPhotos = [];
+            const container = document.getElementById('selection-container');
+            container.innerHTML = '';
+            document.getElementById('select-instruction').innerText = `Pilih ${selectedGrid} foto terbaik`;
+            photos.forEach((src, idx) => {
+                const box = document.createElement('div');
+                box.className = 'select-box';
+                box.innerHTML = `<img src="${src}">`;
+                box.onclick = () => togglePick(idx, box);
+                container.appendChild(box);
+            });
+        }
+
+        function togglePick(idx, el) {
+            const foundIdx = selectedPhotos.indexOf(idx);
+            if(foundIdx > -1) {
+                selectedPhotos.splice(foundIdx, 1);
+                el.classList.remove('picked');
+                el.querySelector('.badge')?.remove();
+            } else if(selectedPhotos.length < selectedGrid) {
+                selectedPhotos.push(idx);
+                el.classList.add('picked');
+                const badge = document.createElement('div');
+                badge.className = 'badge';
+                el.appendChild(badge);
+            }
+            document.getElementById('confirm-selection').disabled = selectedPhotos.length !== selectedGrid;
+            document.querySelectorAll('.select-box.picked').forEach((b, i) => {
+                b.querySelector('.badge').innerText = i + 1;
+            });
+        }
+
         function showReview() {
-            updateStep(3);
+            updateStep(5);
             const list = document.getElementById('theme-list');
             list.innerHTML = '';
             themesData.forEach(t => {
@@ -244,14 +304,16 @@
                 ctx.clearRect(0,0,400,600);
                 ctx.drawImage(frame, 0, 0, 400, 600);
                 const marker = GRID_MARKER[selectedGrid];
-                photos.forEach((src, i) => {
-                    const p = new Image(); p.src = src;
+                selectedPhotos.forEach((photoIdx, i) => {
+                    const p = new Image(); p.src = photos[photoIdx];
                     p.onload = () => {
                         ctx.save();
-                        let col = i % 2; let row = Math.floor(i / 2);
+                        let col = i % 2; 
+                        let row = Math.floor(i / 2);
                         let dx = marker.paddingLeft + (col * (marker.photoW + marker.gapX));
                         let dy = marker.paddingTop + (row * (marker.photoH + marker.gapY));
                         ctx.filter = currentFilter;
+                        // Draw Image dengan paksa ke dimensi Square
                         ctx.drawImage(p, 0, 0, p.width, p.height, dx, dy, marker.photoW, marker.photoH);
                         ctx.restore();
                     }
@@ -259,9 +321,22 @@
             }
         }
 
+        async function printAndReset() {
+            if (!printerCharacteristic) { alert("Printer belum terkoneksi!"); return; }
+            const btn = document.getElementById('print-btn');
+            btn.disabled = true; btn.innerText = "Mencetak...";
+            try {
+                await printerCharacteristic.writeValue(new Uint8Array([0x1B, 0x40]));
+                setTimeout(() => {
+                    alert("Cetak selesai!");
+                    location.reload(); 
+                }, 2000);
+            } catch (err) { alert("Gagal mencetak: " + err); btn.disabled = false; }
+        }
+
         function downloadCanvas() {
             const link = document.createElement('a');
-            link.download = `photobooth-export.png`;
+            link.download = `photobooth.png`;
             link.href = document.getElementById('final-canvas').toDataURL();
             link.click();
         }
